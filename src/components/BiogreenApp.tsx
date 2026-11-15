@@ -152,7 +152,7 @@ export default function BiogreenApp() {
               Reset
             </button>
             <a
-              href="https://github.com/biogreen/biogreen-platform/releases"
+              href="https://github.com/alexRicc2/biogreen/releases"
               target="_blank"
               rel="noreferrer"
               className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800"
