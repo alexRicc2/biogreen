@@ -223,6 +223,15 @@ export function countEvaluated(route: RouteState): number {
   return n;
 }
 
+/** Count evaluated criteria within a subset of ids (e.g. one axis). */
+export function countEvaluatedInIds(route: RouteState, ids: number[]): number {
+  let n = 0;
+  for (const id of ids) {
+    if (isCriterionEvaluated(id, route.criteria[id])) n += 1;
+  }
+  return n;
+}
+
 export function modeLabel(mode: CriterionMode): string {
   if (mode === 'ANC') return 'A-NC';
   if (mode === 'NA') return 'N/A';

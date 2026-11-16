@@ -1,4 +1,12 @@
-import type { EvaluationState, ExportPayload, RouteState } from '../types/biogreen';
+import type {
+  BiogreenBackupFile,
+  BiogreenProject,
+  BiogreenProjectFile,
+  EvaluationState,
+  ExportPayload,
+  RouteState,
+} from '../types/biogreen';
+import { BIOGREEN_RUBRIC_VERSION } from '../types/biogreen';
 import { CRITERIA_BY_ID } from '../data/criteriaConfig';
 import {
   computeDeltaS,
@@ -7,6 +15,7 @@ import {
   resolveCriterionScore,
 } from './calculator';
 import { buildPublicationSvg } from './pictogramSvg';
+import { migrateProject, projectFromEvaluation, projectToEvaluation } from './projectStore';
 
 function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
@@ -96,29 +105,141 @@ function loadImage(url: string): Promise<HTMLImageElement> {
   });
 }
 
-/** Serialize the full evaluation to a downloadable JSON file. */
-export function exportJson(evaluation: EvaluationState, filename = 'biogreen-evaluation.json'): void {
+function safeFilename(title: string, fallback: string): string {
+  const slug = title
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 48);
+  return slug || fallback;
+}
+
+/** Canonical single-project export (.biogreen.json) for sharing / backup. */
+export function exportProjectFile(
+  project: BiogreenProject,
+  filename?: string,
+): void {
+  const payload: BiogreenProjectFile = {
+    format: 'biogreen.project',
+    formatVersion: 1,
+    rubricVersion: BIOGREEN_RUBRIC_VERSION,
+    exportedAt: new Date().toISOString(),
+    project: {
+      ...structuredClone(project),
+      rubricVersion: BIOGREEN_RUBRIC_VERSION,
+      deletedAt: null,
+    },
+  };
+  const name =
+    filename ??
+    `${safeFilename(project.title, 'biogreen-project')}.biogreen.json`;
+  downloadBlob(
+    new Blob([JSON.stringify(payload, null, 2)], {
+      type: 'application/json;charset=utf-8',
+    }),
+    name,
+  );
+}
+
+/** Export every non-deleted project as a workspace backup. */
+export function exportAllProjects(
+  projects: BiogreenProject[],
+  activeProjectId: string | null,
+): void {
+  const active = projects.filter((p) => !p.deletedAt);
+  const payload: BiogreenBackupFile = {
+    format: 'biogreen.backup',
+    formatVersion: 1,
+    rubricVersion: BIOGREEN_RUBRIC_VERSION,
+    exportedAt: new Date().toISOString(),
+    activeProjectId,
+    projects: structuredClone(active),
+  };
+  downloadBlob(
+    new Blob([JSON.stringify(payload, null, 2)], {
+      type: 'application/json;charset=utf-8',
+    }),
+    `biogreen-backup-${new Date().toISOString().slice(0, 10)}.biogreen.json`,
+  );
+}
+
+/** Legacy evaluation JSON (still produced for compatibility). */
+export function exportJson(
+  evaluation: EvaluationState,
+  filename = 'biogreen-evaluation.json',
+): void {
   const payload: ExportPayload = {
     version: 1,
     exportedAt: new Date().toISOString(),
     evaluation,
   };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], {
-    type: 'application/json;charset=utf-8',
-  });
-  downloadBlob(blob, filename);
+  downloadBlob(
+    new Blob([JSON.stringify(payload, null, 2)], {
+      type: 'application/json;charset=utf-8',
+    }),
+    filename,
+  );
 }
 
-/** Parse an imported JSON evaluation payload. */
-export function importJson(text: string): EvaluationState {
-  const data = JSON.parse(text) as ExportPayload | EvaluationState;
-  if ('evaluation' in data && data.evaluation) {
-    return data.evaluation;
+export type ImportedBiogreen =
+  | { kind: 'project'; project: BiogreenProject }
+  | { kind: 'backup'; projects: BiogreenProject[]; activeProjectId: string | null }
+  | { kind: 'evaluation'; project: BiogreenProject };
+
+/** Parse .biogreen.json / legacy evaluation JSON into importable projects. */
+export function importBiogreenFile(text: string): ImportedBiogreen {
+  const data = JSON.parse(text) as Record<string, unknown>;
+
+  if (data.format === 'biogreen.project' && data.project) {
+    const project = migrateProject(data.project);
+    if (!project) throw new Error('Invalid BIOGREEN project file');
+    return { kind: 'project', project };
   }
-  if ('proposed' in data && 'baseline' in data) {
-    return data as EvaluationState;
+
+  if (data.format === 'biogreen.backup' && Array.isArray(data.projects)) {
+    const projects = data.projects
+      .map(migrateProject)
+      .filter((p): p is BiogreenProject => p !== null);
+    if (projects.length === 0) throw new Error('Backup contains no projects');
+    return {
+      kind: 'backup',
+      projects,
+      activeProjectId:
+        typeof data.activeProjectId === 'string' ? data.activeProjectId : null,
+    };
   }
+
+  // Legacy ExportPayload or bare EvaluationState
+  if (data.evaluation && typeof data.evaluation === 'object') {
+    return {
+      kind: 'evaluation',
+      project: projectFromEvaluation(data.evaluation as EvaluationState),
+    };
+  }
+  if ('proposed' in data && 'baseline' in data && 'projectTitle' in data) {
+    return {
+      kind: 'evaluation',
+      project: projectFromEvaluation(data as unknown as EvaluationState),
+    };
+  }
+
+  // Single BiogreenProject without wrapper
+  const asProject = migrateProject(data);
+  if (asProject && asProject.routeA && asProject.routeB) {
+    return { kind: 'project', project: asProject };
+  }
+
   throw new Error('Unrecognized BIOGREEN JSON format');
+}
+
+/** @deprecated Prefer importBiogreenFile — kept for call sites that want EvaluationState. */
+export function importJson(text: string): EvaluationState {
+  const parsed = importBiogreenFile(text);
+  if (parsed.kind === 'backup') {
+    return projectToEvaluation(parsed.projects[0]);
+  }
+  return projectToEvaluation(parsed.project);
 }
 
 /** Open a printable multi-criterion PDF/report in a new window. */
@@ -172,7 +293,7 @@ export function exportPdfReport(evaluation: EvaluationState): void {
 <body>
   <button class="no-print" onclick="window.print()" style="margin-bottom:1rem;padding:0.5rem 1rem;">Print / Save as PDF</button>
   <h1>BIOGREEN Assessment Report</h1>
-  <p class="meta">${escapeHtml(evaluation.projectTitle)} · Generated ${new Date().toLocaleString()}</p>
+  <p class="meta">${escapeHtml(evaluation.projectTitle)} · BIOGREEN rubric v${BIOGREEN_RUBRIC_VERSION} · Generated ${new Date().toLocaleString()}</p>
   <div class="kpis">
     <div class="kpi"><div class="label">S<sub>proposed</sub></div><div class="value">${formatScore(proposed.score)}</div></div>
     <div class="kpi"><div class="label">S<sub>baseline</sub></div><div class="value">${formatScore(baseline.score)}</div></div>

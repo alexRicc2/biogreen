@@ -21,13 +21,13 @@ export default function SideBySideComparison({ evaluation, open, onToggle }: Pro
   const delta = computeDeltaS(proposed.score, baseline.score);
 
   return (
-    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+    <section className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white">
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-between px-4 py-3 text-left"
+        className="flex w-full min-w-0 items-center justify-between gap-3 px-3 py-3 text-left sm:px-4"
       >
-        <div>
+        <div className="min-w-0">
           <h2 className="text-sm font-semibold text-slate-900">
             Side-by-Side Route Comparison
           </h2>
@@ -36,12 +36,12 @@ export default function SideBySideComparison({ evaluation, open, onToggle }: Pro
             <sub>i</sub>
           </p>
         </div>
-        <span className="text-slate-400">{open ? '−' : '+'}</span>
+        <span className="shrink-0 text-slate-400">{open ? '−' : '+'}</span>
       </button>
 
       {open && (
-        <div className="space-y-4 border-t border-slate-100 p-4">
-          <div className="grid gap-4 md:grid-cols-2">
+        <div className="min-w-0 space-y-4 border-t border-slate-100 p-3 sm:p-4">
+          <div className="grid min-w-0 gap-4 md:grid-cols-2">
             <div className="rounded-md border border-slate-200 p-3">
               <p className="mb-2 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Route A · Proposed · {formatScore(proposed.score)}

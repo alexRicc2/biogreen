@@ -9,6 +9,7 @@
 
 html {
   scroll-behavior: smooth;
+  overflow-x: clip;
 }
 
 body {
@@ -17,6 +18,37 @@ body {
   background: var(--color-canvas);
   color: var(--color-ink);
   -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+  padding-bottom: 2rem;
+}
+
+/* Prefer readable helper copy over pale slate on white (WCAG AA for small text). */
+.text-helper {
+  color: #475569;
+}
+
+/* All interactive controls show a pointer cursor */
+button,
+a[href],
+summary,
+select,
+label,
+[role='button'],
+input[type='button'],
+input[type='submit'],
+input[type='reset'],
+input[type='checkbox'],
+input[type='radio'],
+input[type='range'],
+input[type='file'] {
+  cursor: pointer;
+}
+
+button:disabled,
+select:disabled,
+input:disabled,
+[aria-disabled='true'] {
+  cursor: not-allowed;
 }
 
 .font-display {

@@ -19,8 +19,8 @@ export default function ComparisonTable({ evaluation }: Props) {
   const delta = computeDeltaS(proposed.score, baseline.score);
 
   return (
-    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-      <div className="border-b border-slate-200 px-4 py-3">
+    <section className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="border-b border-slate-200 px-3 py-3 sm:px-4">
         <h2 className="text-sm font-semibold text-slate-900">Criterion Comparison</h2>
         <p className="text-xs text-slate-500">
           Side-by-side Proposed vs Baseline · ΔS ={' '}
@@ -29,8 +29,8 @@ export default function ComparisonTable({ evaluation }: Props) {
           </span>
         </p>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[640px] text-left text-sm">
+      <div className="-mx-0 overflow-x-auto overscroll-x-contain">
+        <table className="w-full min-w-[560px] text-left text-sm">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-3 py-2 font-medium">#</th>

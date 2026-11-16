@@ -292,8 +292,11 @@ function routeFromScores(
 }
 
 /**
- * Built-in presets mirroring benchmark studies discussed in the manuscript,
- * so reviewers can load realistic Proposed vs Baseline comparisons immediately.
+ * Built-in demo presets for UI walkthroughs.
+ *
+ * These are illustrative rubric-based scenarios (not scored tables from the
+ * manuscript). Section 3.3.5 "BIOGREEN validation" is still empty in the
+ * current draft, so replace these with real paper case studies when available.
  */
 export const PRESETS: PresetDefinition[] = [
   {
@@ -304,9 +307,9 @@ export const PRESETS: PresetDefinition[] = [
   },
   {
     id: 'lignocellulosic_adsorbent',
-    name: 'Lignocellulosic waste adsorbent vs activated carbon',
+    name: 'Demo: lignocellulosic adsorbent vs activated carbon',
     description:
-      'Proposed: agricultural-residue bioadsorbent under mild green conditions. Baseline: commercial fossil-derived activated carbon.',
+      'Illustrative demo (not a paper table). Proposed: agricultural-residue bioadsorbent. Baseline: commercial fossil-derived activated carbon.',
     evaluation: {
       projectTitle: 'Lignocellulosic Waste Adsorbent vs Commercial Activated Carbon',
       proposed: routeFromScores('Proposed Synthesis', {
@@ -359,9 +362,9 @@ export const PRESETS: PresetDefinition[] = [
   },
   {
     id: 'algal_biopolymer',
-    name: 'Algal biopolymer vs petrochemical plastic',
+    name: 'Demo: algal biopolymer vs petrochemical plastic',
     description:
-      'Proposed: invasive-algae biopolymer with enzymatic pretreatment. Baseline: virgin petrochemical plastic resin.',
+      'Illustrative demo (not a paper table). Proposed: invasive-algae biopolymer. Baseline: virgin petrochemical plastic resin.',
     evaluation: {
       projectTitle: 'Algal Biopolymer vs Virgin Petrochemical Plastic',
       proposed: routeFromScores('Proposed Synthesis', {

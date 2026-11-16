@@ -1,4 +1,5 @@
 import type { RouteState } from '../types/biogreen';
+import { BIOGREEN_RUBRIC_VERSION } from '../types/biogreen';
 import { CRITERIA_BY_ID } from '../data/criteriaConfig';
 import {
   computeDeltaS,
@@ -9,14 +10,21 @@ import {
 } from './calculator';
 import { contrastTextForScore, scoreToColor } from './colors';
 
-export const CX = 210;
-export const CY = 210;
+export const CX = 240;
+export const CY = 240;
 export const OUTER = 142;
 export const INNER = 68;
 export const LABEL_R = 158;
-export const AXIS_R = 172;
-export const AXIS_LABEL_R = 198;
-export const VIEW = 420;
+export const AXIS_R = 176;
+export const AXIS_LABEL_R = 214;
+export const VIEW = 480;
+
+/** Distinct axis accent colors (not score traffic-lights). */
+export const AXIS_COLORS = {
+  A: '#0F766E',
+  B: '#1D4ED8',
+  C: '#C2410C',
+} as const;
 
 export function polar(cx: number, cy: number, r: number, angleDeg: number) {
   const rad = ((angleDeg - 90) * Math.PI) / 180;
@@ -80,18 +88,43 @@ export function layoutAngles() {
 export function axisGroups() {
   const { starts, ends } = layoutAngles();
   const groups = [
-    { axis: 'A', label: 'Axis A', ids: [0, 1, 2], color: '#475569' },
-    { axis: 'B', label: 'Axis B', ids: [3, 4, 5, 6], color: '#334155' },
-    { axis: 'C', label: 'Axis C', ids: [7, 8, 9, 10, 11], color: '#1E293B' },
+    {
+      axis: 'A' as const,
+      label: 'A: Feedstock & WEF',
+      ids: [0, 1, 2],
+      color: AXIS_COLORS.A,
+    },
+    {
+      axis: 'B' as const,
+      label: 'B: Process',
+      ids: [3, 4, 5, 6],
+      color: AXIS_COLORS.B,
+    },
+    {
+      axis: 'C' as const,
+      label: 'C: Material & EoL',
+      ids: [7, 8, 9, 10, 11],
+      color: AXIS_COLORS.C,
+    },
   ];
   return groups.map((g) => {
     const start = starts[g.ids[0]];
     const end = ends[g.ids[g.ids.length - 1]];
     const mid = (start + end) / 2;
-    const labelPos = polar(CX, CY, AXIS_LABEL_R, mid);
-    const textAnchor =
-      labelPos.x < CX - 4 ? 'end' : labelPos.x > CX + 4 ? 'start' : 'middle';
-    return { ...g, start, end, mid, labelPos, textAnchor };
+    const raw = polar(CX, CY, AXIS_LABEL_R, mid);
+    // Approximate half-width so upright labels never clip the viewBox.
+    const halfW = Math.max(28, g.label.length * 3.35);
+    const pad = 6;
+    const x = Math.min(VIEW - halfW - pad, Math.max(halfW + pad, raw.x));
+    const y = Math.min(VIEW - 12, Math.max(12, raw.y));
+    return {
+      ...g,
+      start,
+      end,
+      mid,
+      labelPos: { x, y },
+      textAnchor: 'middle' as const,
+    };
   });
 }
 
@@ -134,7 +167,7 @@ export function buildPublicationSvg(options: PublicationSvgOptions): string {
     { unanswered: hubUnanswered },
   );
 
-  const titleH = 28;
+  const titleH = 40;
   const legendH = includeLegend ? 36 : 0;
   const height = VIEW + titleH + legendH;
 
@@ -161,10 +194,10 @@ export function buildPublicationSvg(options: PublicationSvgOptions): string {
     const tickS1 = polar(CX, CY, AXIS_R + 5, a.start);
     const tickE0 = polar(CX, CY, AXIS_R - 5, a.end);
     const tickE1 = polar(CX, CY, AXIS_R + 5, a.end);
-    axisMarkup += `<path d="${arcPath(CX, CY, AXIS_R, a.start, a.end)}" fill="none" stroke="${a.color}" stroke-width="4" stroke-linecap="round" opacity="0.85"/>`;
-    axisMarkup += `<path d="M ${tickS0.x} ${tickS0.y} L ${tickS1.x} ${tickS1.y}" stroke="${a.color}" stroke-width="2.5" stroke-linecap="round"/>`;
-    axisMarkup += `<path d="M ${tickE0.x} ${tickE0.y} L ${tickE1.x} ${tickE1.y}" stroke="${a.color}" stroke-width="2.5" stroke-linecap="round"/>`;
-    axisMarkup += `<text x="${a.labelPos.x.toFixed(2)}" y="${a.labelPos.y.toFixed(2)}" text-anchor="${a.textAnchor}" dominant-baseline="central" fill="${a.color}" font-size="10" font-weight="700" font-family="IBM Plex Sans, Segoe UI, sans-serif" letter-spacing="0.04em">${a.label}</text>`;
+    axisMarkup += `<path d="${arcPath(CX, CY, AXIS_R, a.start, a.end)}" fill="none" stroke="${a.color}" stroke-width="7" stroke-linecap="round" opacity="0.95"/>`;
+    axisMarkup += `<path d="M ${tickS0.x} ${tickS0.y} L ${tickS1.x} ${tickS1.y}" stroke="${a.color}" stroke-width="3.5" stroke-linecap="round"/>`;
+    axisMarkup += `<path d="M ${tickE0.x} ${tickE0.y} L ${tickE1.x} ${tickE1.y}" stroke="${a.color}" stroke-width="3.5" stroke-linecap="round"/>`;
+    axisMarkup += `<text x="${a.labelPos.x.toFixed(2)}" y="${a.labelPos.y.toFixed(2)}" text-anchor="middle" dominant-baseline="central" fill="${a.color}" font-size="11" font-weight="700" font-family="IBM Plex Sans, Segoe UI, sans-serif">${escapeXml(a.label)}</text>`;
   }
 
   const legend = includeLegend
@@ -180,7 +213,8 @@ export function buildPublicationSvg(options: PublicationSvgOptions): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${VIEW}" height="${height}" viewBox="0 0 ${VIEW} ${height}">
   <rect width="100%" height="100%" fill="#FFFFFF"/>
-  <text x="${VIEW / 2}" y="20" text-anchor="middle" fill="#0F172A" font-size="13" font-weight="700" font-family="IBM Plex Sans, Segoe UI, sans-serif">${escapeXml(routeTitle)}</text>
+  <text x="${VIEW / 2}" y="16" text-anchor="middle" fill="#0F172A" font-size="13" font-weight="700" font-family="IBM Plex Sans, Segoe UI, sans-serif">${escapeXml(routeTitle)}</text>
+  <text x="${VIEW / 2}" y="30" text-anchor="middle" fill="#64748B" font-size="9" font-weight="500" font-family="IBM Plex Sans, Segoe UI, sans-serif">BIOGREEN rubric v${BIOGREEN_RUBRIC_VERSION} · ${new Date().toISOString().slice(0, 10)}</text>
   <g transform="translate(0 ${titleH})">
     <rect width="${VIEW}" height="${VIEW}" fill="#FFFFFF"/>
     ${axisMarkup}

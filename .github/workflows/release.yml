@@ -53,6 +53,6 @@ jobs:
 
             - Windows: `.exe` / NSIS installer
             - macOS: `.dmg` (Apple Silicon & Intel)
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}

@@ -1,4 +1,4 @@
-import { useMemo, useState, type RefObject } from 'react';
+import { useId, useMemo, useState, type RefObject } from 'react';
 import type { CriterionMode, RouteState } from '../types/biogreen';
 import { CRITERIA_BY_ID } from '../data/criteriaConfig';
 import {
@@ -44,7 +44,7 @@ interface SectorGeom {
   path: string;
   color: string;
   unanswered: boolean;
-  dashed: boolean;
+  isNa: boolean;
   labelX: number;
   labelY: number;
   mode: CriterionMode;
@@ -64,12 +64,16 @@ export default function BiogreenPictogram({
   svgRef,
 }: Props) {
   const [tooltip, setTooltip] = useState<{ id: number; x: number; y: number } | null>(null);
+  const uid = useId().replace(/:/g, '');
+  const hatchId = `unanswered-hatch-${uid}`;
+  const dotsId = `na-dots-${uid}`;
 
   const preview = previewRoute === 'proposed' ? proposed : baseline;
   const proposedScore = useMemo(() => computeGlobalScore(proposed), [proposed]);
   const baselineScore = useMemo(() => computeGlobalScore(baseline), [baseline]);
   const previewScore = previewRoute === 'proposed' ? proposedScore : baselineScore;
   const delta = computeDeltaS(proposedScore.score, baselineScore.score);
+  const baselineFilled = baselineScore.evaluatedCount > 0 && baselineScore.score !== null;
 
   const sectors = useMemo((): SectorGeom[] => {
     const { starts, ends, mids } = layoutAngles();
@@ -87,7 +91,7 @@ export default function BiogreenPictogram({
         path: donutSector(CX, CY, INNER, OUTER, starts[i], ends[i]),
         color: scoreToColor(score ?? 0, state.mode, { unanswered }),
         unanswered,
-        dashed: unanswered || state.mode === 'NA',
+        isNa: state.mode === 'NA',
         labelX: label.x,
         labelY: label.y,
         mode: state.mode,
@@ -103,6 +107,8 @@ export default function BiogreenPictogram({
   const axes = useMemo(() => axisGroups(), []);
 
   const hubUnanswered = previewScore.score === null;
+  const hubPartial =
+    previewScore.incomplete && previewScore.score !== null && !previewScore.allNa;
   const hubColor = hubUnanswered
     ? '#F1F5F9'
     : scoreToColor(previewScore.score ?? 0, previewScore.allNa ? 'NA' : 'VALID');
@@ -118,6 +124,9 @@ export default function BiogreenPictogram({
       ? 'Previewing: Route A (Proposed)'
       : 'Previewing: Route B (Baseline)';
 
+  const hubScoreSize = compact ? 16 : hubPartial ? 18 : 22;
+  const hubSubSize = compact ? 9 : 11;
+
   return (
     <div className="relative w-full">
       {showPreviewLabel && (
@@ -129,8 +138,23 @@ export default function BiogreenPictogram({
         viewBox={`0 0 ${VIEW} ${VIEW}`}
         role="img"
         aria-label="BIOGREEN 12-petal radar pictogram"
-        className={`mx-auto h-auto w-full ${compact ? 'max-w-[280px]' : 'max-w-[440px]'}`}
+        className={`mx-auto h-auto w-full ${compact ? 'max-w-[300px]' : 'max-w-[520px]'}`}
       >
+        <defs>
+          <pattern
+            id={hatchId}
+            patternUnits="userSpaceOnUse"
+            width="6"
+            height="6"
+            patternTransform="rotate(45)"
+          >
+            <line x1="0" y1="0" x2="0" y2="6" stroke="#94A3B8" strokeWidth="1.5" />
+          </pattern>
+          <pattern id={dotsId} patternUnits="userSpaceOnUse" width="6" height="6">
+            <circle cx="1.5" cy="1.5" r="1" fill="#94A3B8" />
+          </pattern>
+        </defs>
+
         <rect width={VIEW} height={VIEW} fill="#FFFFFF" />
 
         {axes.map((a) => (
@@ -139,29 +163,29 @@ export default function BiogreenPictogram({
               d={arcPath(CX, CY, AXIS_R, a.start, a.end)}
               fill="none"
               stroke={a.color}
-              strokeWidth={4}
+              strokeWidth={7}
               strokeLinecap="round"
-              opacity={0.85}
+              opacity={0.95}
             />
             <path
-              d={`M ${polar(CX, CY, AXIS_R - 5, a.start).x} ${polar(CX, CY, AXIS_R - 5, a.start).y} L ${polar(CX, CY, AXIS_R + 5, a.start).x} ${polar(CX, CY, AXIS_R + 5, a.start).y}`}
+              d={`M ${polar(CX, CY, AXIS_R - 7, a.start).x} ${polar(CX, CY, AXIS_R - 7, a.start).y} L ${polar(CX, CY, AXIS_R + 7, a.start).x} ${polar(CX, CY, AXIS_R + 7, a.start).y}`}
               stroke={a.color}
-              strokeWidth={2.5}
+              strokeWidth={3.5}
               strokeLinecap="round"
             />
             <path
-              d={`M ${polar(CX, CY, AXIS_R - 5, a.end).x} ${polar(CX, CY, AXIS_R - 5, a.end).y} L ${polar(CX, CY, AXIS_R + 5, a.end).x} ${polar(CX, CY, AXIS_R + 5, a.end).y}`}
+              d={`M ${polar(CX, CY, AXIS_R - 7, a.end).x} ${polar(CX, CY, AXIS_R - 7, a.end).y} L ${polar(CX, CY, AXIS_R + 7, a.end).x} ${polar(CX, CY, AXIS_R + 7, a.end).y}`}
               stroke={a.color}
-              strokeWidth={2.5}
+              strokeWidth={3.5}
               strokeLinecap="round"
             />
             <text
               x={a.labelPos.x}
               y={a.labelPos.y}
-              textAnchor={a.textAnchor}
+              textAnchor="middle"
               dominantBaseline="central"
               fill={a.color}
-              style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.04em' }}
+              style={{ fontSize: '11px', fontWeight: 700 }}
             >
               {a.label}
             </text>
@@ -172,11 +196,11 @@ export default function BiogreenPictogram({
           <g key={s.id}>
             <path
               d={s.path}
-              fill={s.color}
-              fillOpacity={s.unanswered ? 0.35 : s.mode === 'NA' ? 0.55 : 0.95}
-              stroke={s.unanswered ? '#CBD5E1' : s.mode === 'NA' ? '#94A3B8' : '#FFFFFF'}
-              strokeWidth={s.unanswered || s.mode === 'NA' ? 1.75 : 1}
-              strokeDasharray={s.dashed ? '4 3' : undefined}
+              fill={s.unanswered ? '#FFFFFF' : s.color}
+              fillOpacity={s.unanswered ? 1 : s.isNa ? 0.85 : 0.95}
+              stroke={s.unanswered ? '#64748B' : s.isNa ? '#94A3B8' : '#FFFFFF'}
+              strokeWidth={s.unanswered || s.isNa ? 1.75 : 1}
+              strokeDasharray={s.unanswered ? '5 3' : s.isNa ? '3 2' : undefined}
               className="cursor-pointer transition-opacity hover:opacity-85"
               onMouseEnter={(e) => {
                 const rect = (e.target as SVGPathElement).ownerSVGElement?.getBoundingClientRect();
@@ -190,12 +214,28 @@ export default function BiogreenPictogram({
               }}
               onMouseLeave={() => setTooltip(null)}
             />
+            {s.unanswered && (
+              <path
+                d={s.path}
+                fill={`url(#${hatchId})`}
+                fillOpacity={0.55}
+                className="pointer-events-none"
+              />
+            )}
+            {s.isNa && (
+              <path
+                d={s.path}
+                fill={`url(#${dotsId})`}
+                fillOpacity={0.45}
+                className="pointer-events-none"
+              />
+            )}
             <text
               x={s.labelX}
               y={s.labelY}
               textAnchor="middle"
               dominantBaseline="central"
-              className="fill-slate-700"
+              className="pointer-events-none fill-slate-700"
               style={{ fontSize: '11px', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}
             >
               {s.id}
@@ -209,46 +249,80 @@ export default function BiogreenPictogram({
           cy={CY}
           r={INNER - 4}
           fill="none"
-          stroke={hubUnanswered ? '#CBD5E1' : '#FFFFFF'}
+          stroke={hubUnanswered ? '#94A3B8' : '#FFFFFF'}
           strokeWidth={3}
         />
         <text
           x={CX}
-          y={CY - 8}
+          y={hubPartial ? CY - 14 : CY - 8}
           textAnchor="middle"
           fill={hubText}
-          style={{ fontSize: compact ? '18px' : '22px', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}
+          style={{
+            fontSize: `${hubScoreSize}px`,
+            fontWeight: 700,
+            fontVariantNumeric: 'tabular-nums',
+          }}
         >
           {formatScore(previewScore.score)}
         </text>
+        {hubPartial ? (
+          <text
+            x={CX}
+            y={CY + 4}
+            textAnchor="middle"
+            fill={hubText}
+            opacity={0.95}
+            style={{
+              fontSize: `${hubSubSize}px`,
+              fontWeight: 600,
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >
+            partial · {previewScore.evaluatedCount}/12
+          </text>
+        ) : null}
         <text
           x={CX}
-          y={CY + 16}
+          y={hubPartial ? CY + 20 : CY + 16}
           textAnchor="middle"
           fill={hubText}
           opacity={0.9}
-          style={{ fontSize: compact ? '11px' : '12px', fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}
+          style={{
+            fontSize: `${hubSubSize}px`,
+            fontWeight: 500,
+            fontVariantNumeric: 'tabular-nums',
+          }}
         >
-          ΔS = {formatScore(delta)}
+          {delta === null
+            ? baselineFilled
+              ? 'ΔS = —'
+              : 'Fill Route B'
+            : `ΔS = ${formatScore(delta)}`}
         </text>
       </svg>
 
       {showUiLegend && (
-        <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-[10px] text-slate-600">
+        <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[10px] text-slate-600 sm:grid-cols-3">
           <LegendSwatch color="#15803D" label="Green: +0.50 to +1.00" />
           <LegendSwatch color="#F59E0B" label="Yellow: 0.00 to +0.49" />
           <LegendSwatch color="#B91C1C" label="Red: −1.00 to −0.01" />
-          <LegendSwatch color="#E2E8F0" label="Light Gray: N/A" border />
+          <LegendSwatch color="#E2E8F0" label="Dots: N/A (excluded)" border />
           <LegendSwatch color="#475569" label="Dark Gray: A-NC (−0.25)" />
-          <LegendSwatch color="#FFFFFF" label="Outline: Unanswered" border dashed />
+          <LegendSwatch color="#FFFFFF" label="Hatch: Unanswered" border dashed />
         </div>
+      )}
+
+      {!baselineFilled && showUiLegend && (
+        <p className="mt-2 text-center text-[11px] font-medium text-slate-600">
+          Fill Route B (Baseline) to compute ΔS — required for the paper’s benchmark comparison.
+        </p>
       )}
 
       {tooltip && tipSector && (
         <div
-          className="pointer-events-none absolute z-10 max-w-[220px] rounded-md border border-slate-200 bg-white px-3 py-2 text-xs shadow-md"
+          className="pointer-events-none absolute z-10 max-w-[240px] rounded-md border border-slate-200 bg-white px-3 py-2 text-xs shadow-md"
           style={{
-            left: Math.min(tooltip.x + 12, 260),
+            left: Math.min(tooltip.x + 12, VIEW * 0.55),
             top: Math.max(tooltip.y - 10, 8),
           }}
         >
@@ -293,16 +367,17 @@ function LegendSwatch({
   dashed?: boolean;
 }) {
   return (
-    <span className="inline-flex items-center gap-1.5">
+    <span className="inline-flex min-w-0 items-center gap-1.5">
       <span
         className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm"
         style={{
           background: color,
-          border: border ? '1px solid #94A3B8' : undefined,
+          border: border ? '1px solid #64748B' : undefined,
           borderStyle: dashed ? 'dashed' : border ? 'solid' : undefined,
         }}
+        aria-hidden
       />
-      <span>{label}</span>
+      <span className="truncate">{label}</span>
     </span>
   );
 }
