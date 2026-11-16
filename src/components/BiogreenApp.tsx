@@ -4,7 +4,6 @@ import { BIOGREEN_RUBRIC_VERSION } from '../types/biogreen';
 import {
   AXIS_GROUPS,
   CRITERIA_BY_ID,
-  PRESETS,
 } from '../data/criteriaConfig';
 import {
   computeDeltaS,
@@ -31,7 +30,6 @@ import SideBySideComparison from './SideBySideComparison';
 
 export default function BiogreenApp() {
   const ws = useWorkspace();
-  const [presetId, setPresetId] = useState('');
   const [titleDraft, setTitleDraft] = useState('');
   const [showDesktopDownload, setShowDesktopDownload] = useState(true);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -47,7 +45,6 @@ export default function BiogreenApp() {
     if (titleSyncedId.current === ws.activeProject.id) return;
     titleSyncedId.current = ws.activeProject.id;
     setTitleDraft(ws.activeProject.title);
-    setPresetId('');
   }, [ws.activeProject]);
 
   if (!ws.ready || !ws.activeProject || !ws.evaluation || !ws.ui) {
@@ -140,15 +137,6 @@ export default function BiogreenApp() {
     void ws.flushPending();
   };
 
-  const loadTemplate = async (id: string) => {
-    const preset = PRESETS.find((p) => p.id === id);
-    if (!preset) return;
-    setPresetId('');
-    // Templates always create a new project — never overwrite the current one.
-    await ws.createFromTemplate(structuredClone(preset.evaluation), preset.evaluation.projectTitle);
-    titleSyncedId.current = null;
-  };
-
   const handleImportFile = async (file: File) => {
     try {
       const text = await file.text();
@@ -218,44 +206,23 @@ export default function BiogreenApp() {
             </p>
           </div>
 
-          <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-            <label className="flex min-w-0 w-full items-center gap-2 text-sm sm:w-auto">
-              <span className="shrink-0 text-slate-600">Template</span>
-              <select
-                className="min-w-0 w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-sm outline-none focus:border-slate-400 sm:max-w-[280px]"
-                value={presetId}
-                onChange={(e) => {
-                  const id = e.target.value;
-                  if (!id) return;
-                  void loadTemplate(id);
-                }}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void ws.resetActive()}
+              className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Reset project
+            </button>
+            {showDesktopDownload && (
+              <a
+                href="/download"
+                className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
               >
-                <option value="">Create from template…</option>
-                {PRESETS.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => void ws.resetActive()}
-                className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-              >
-                Reset project
-              </button>
-              {showDesktopDownload && (
-                <a
-                  href="/download"
-                  className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                >
-                  <span className="sm:hidden">Desktop App</span>
-                  <span className="hidden sm:inline">Download Desktop App</span>
-                </a>
-              )}
-            </div>
+                <span className="sm:hidden">Desktop App</span>
+                <span className="hidden sm:inline">Download Desktop App</span>
+              </a>
+            )}
           </div>
         </div>
       </header>
