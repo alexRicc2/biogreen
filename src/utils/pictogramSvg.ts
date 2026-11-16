@@ -10,14 +10,15 @@ import {
 } from './calculator';
 import { contrastTextForScore, scoreToColor } from './colors';
 
-export const CX = 240;
-export const CY = 240;
+export const CX = 250;
+export const CY = 250;
 export const OUTER = 142;
 export const INNER = 68;
 export const LABEL_R = 158;
 export const AXIS_R = 176;
-export const AXIS_LABEL_R = 214;
-export const VIEW = 480;
+/** Radius for curved axis titles — clearly outside the colored axis arc. */
+export const AXIS_LABEL_R = 212;
+export const VIEW = 500;
 
 /** Distinct axis accent colors (not score traffic-lights). */
 export const AXIS_COLORS = {
@@ -85,6 +86,26 @@ export function layoutAngles() {
   return { starts, ends, mids, nominal, total };
 }
 
+/**
+ * Arc path for an axis title. Bottom-half labels use a counter-clockwise path
+ * so textPath stays page-upright; top/left use clockwise.
+ */
+export function axisLabelPathD(
+  start: number,
+  end: number,
+  flip: boolean,
+  r: number = AXIS_LABEL_R,
+): string {
+  const mid = (start + end) / 2;
+  const half = Math.min(((end - start) / 2) * 0.9, 60);
+  const a0 = mid - half;
+  const a1 = mid + half;
+  if (!flip) return arcPath(CX, CY, r, a0, a1);
+  const s = polar(CX, CY, r, a1);
+  const e = polar(CX, CY, r, a0);
+  return `M ${s.x.toFixed(2)} ${s.y.toFixed(2)} A ${r} ${r} 0 0 0 ${e.x.toFixed(2)} ${e.y.toFixed(2)}`;
+}
+
 export function axisGroups() {
   const { starts, ends } = layoutAngles();
   const groups = [
@@ -111,19 +132,16 @@ export function axisGroups() {
     const start = starts[g.ids[0]];
     const end = ends[g.ids[g.ids.length - 1]];
     const mid = (start + end) / 2;
-    const raw = polar(CX, CY, AXIS_LABEL_R, mid);
-    // Approximate half-width so upright labels never clip the viewBox.
-    const halfW = Math.max(28, g.label.length * 3.35);
-    const pad = 6;
-    const x = Math.min(VIEW - halfW - pad, Math.max(halfW + pad, raw.x));
-    const y = Math.min(VIEW - 12, Math.max(12, raw.y));
+    const flip = polar(CX, CY, AXIS_LABEL_R, mid).y > CY + 4;
+    const labelR = flip ? AXIS_LABEL_R + 9 : AXIS_LABEL_R;
     return {
       ...g,
       start,
       end,
       mid,
-      labelPos: { x, y },
-      textAnchor: 'middle' as const,
+      flip,
+      labelR,
+      labelPath: axisLabelPathD(start, end, flip, labelR),
     };
   });
 }
@@ -189,15 +207,18 @@ export function buildPublicationSvg(options: PublicationSvgOptions): string {
   }
 
   let axisMarkup = '';
+  let axisDefs = '';
   for (const a of axes) {
     const tickS0 = polar(CX, CY, AXIS_R - 5, a.start);
     const tickS1 = polar(CX, CY, AXIS_R + 5, a.start);
     const tickE0 = polar(CX, CY, AXIS_R - 5, a.end);
     const tickE1 = polar(CX, CY, AXIS_R + 5, a.end);
+    const pathId = `axis-label-${a.axis}`;
+    axisDefs += `<path id="${pathId}" d="${a.labelPath}" fill="none"/>`;
     axisMarkup += `<path d="${arcPath(CX, CY, AXIS_R, a.start, a.end)}" fill="none" stroke="${a.color}" stroke-width="7" stroke-linecap="round" opacity="0.95"/>`;
     axisMarkup += `<path d="M ${tickS0.x} ${tickS0.y} L ${tickS1.x} ${tickS1.y}" stroke="${a.color}" stroke-width="3.5" stroke-linecap="round"/>`;
     axisMarkup += `<path d="M ${tickE0.x} ${tickE0.y} L ${tickE1.x} ${tickE1.y}" stroke="${a.color}" stroke-width="3.5" stroke-linecap="round"/>`;
-    axisMarkup += `<text x="${a.labelPos.x.toFixed(2)}" y="${a.labelPos.y.toFixed(2)}" text-anchor="middle" dominant-baseline="central" fill="${a.color}" font-size="11" font-weight="700" font-family="IBM Plex Sans, Segoe UI, sans-serif">${escapeXml(a.label)}</text>`;
+    axisMarkup += `<text fill="${a.color}" font-size="11" font-weight="700" letter-spacing="0.6" text-anchor="middle" font-family="IBM Plex Sans, Segoe UI, sans-serif"><textPath href="#${pathId}" xlink:href="#${pathId}" startOffset="50%">${escapeXml(a.label)}</textPath></text>`;
   }
 
   const legend = includeLegend
@@ -211,12 +232,13 @@ export function buildPublicationSvg(options: PublicationSvgOptions): string {
     : '';
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${VIEW}" height="${height}" viewBox="0 0 ${VIEW} ${height}">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${VIEW}" height="${height}" viewBox="0 0 ${VIEW} ${height}">
   <rect width="100%" height="100%" fill="#FFFFFF"/>
   <text x="${VIEW / 2}" y="16" text-anchor="middle" fill="#0F172A" font-size="13" font-weight="700" font-family="IBM Plex Sans, Segoe UI, sans-serif">${escapeXml(routeTitle)}</text>
   <text x="${VIEW / 2}" y="30" text-anchor="middle" fill="#64748B" font-size="9" font-weight="500" font-family="IBM Plex Sans, Segoe UI, sans-serif">BIOGREEN rubric v${BIOGREEN_RUBRIC_VERSION} · ${new Date().toISOString().slice(0, 10)}</text>
   <g transform="translate(0 ${titleH})">
     <rect width="${VIEW}" height="${VIEW}" fill="#FFFFFF"/>
+    <defs>${axisDefs}</defs>
     ${axisMarkup}
     ${sectors}
     <circle cx="${CX}" cy="${CY}" r="${INNER - 4}" fill="${hubColor}"/>

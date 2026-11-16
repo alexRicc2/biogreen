@@ -138,6 +138,7 @@ export default function BiogreenPictogram({
         viewBox={`0 0 ${VIEW} ${VIEW}`}
         role="img"
         aria-label="BIOGREEN 12-petal radar pictogram"
+        xmlnsXlink="http://www.w3.org/1999/xlink"
         className={`mx-auto h-auto w-full ${compact ? 'max-w-[300px]' : 'max-w-[520px]'}`}
       >
         <defs>
@@ -153,44 +154,56 @@ export default function BiogreenPictogram({
           <pattern id={dotsId} patternUnits="userSpaceOnUse" width="6" height="6">
             <circle cx="1.5" cy="1.5" r="1" fill="#94A3B8" />
           </pattern>
+          {axes.map((a) => (
+            <path
+              key={`axis-label-path-${a.axis}`}
+              id={`axis-label-${uid}-${a.axis}`}
+              d={a.labelPath}
+              fill="none"
+            />
+          ))}
         </defs>
 
         <rect width={VIEW} height={VIEW} fill="#FFFFFF" />
 
-        {axes.map((a) => (
-          <g key={a.axis}>
-            <path
-              d={arcPath(CX, CY, AXIS_R, a.start, a.end)}
-              fill="none"
-              stroke={a.color}
-              strokeWidth={7}
-              strokeLinecap="round"
-              opacity={0.95}
-            />
-            <path
-              d={`M ${polar(CX, CY, AXIS_R - 7, a.start).x} ${polar(CX, CY, AXIS_R - 7, a.start).y} L ${polar(CX, CY, AXIS_R + 7, a.start).x} ${polar(CX, CY, AXIS_R + 7, a.start).y}`}
-              stroke={a.color}
-              strokeWidth={3.5}
-              strokeLinecap="round"
-            />
-            <path
-              d={`M ${polar(CX, CY, AXIS_R - 7, a.end).x} ${polar(CX, CY, AXIS_R - 7, a.end).y} L ${polar(CX, CY, AXIS_R + 7, a.end).x} ${polar(CX, CY, AXIS_R + 7, a.end).y}`}
-              stroke={a.color}
-              strokeWidth={3.5}
-              strokeLinecap="round"
-            />
-            <text
-              x={a.labelPos.x}
-              y={a.labelPos.y}
-              textAnchor="middle"
-              dominantBaseline="central"
-              fill={a.color}
-              style={{ fontSize: '11px', fontWeight: 700 }}
-            >
-              {a.label}
-            </text>
-          </g>
-        ))}
+        {axes.map((a) => {
+          const pathId = `axis-label-${uid}-${a.axis}`;
+          return (
+            <g key={a.axis}>
+              <path
+                d={arcPath(CX, CY, AXIS_R, a.start, a.end)}
+                fill="none"
+                stroke={a.color}
+                strokeWidth={7}
+                strokeLinecap="round"
+                opacity={0.95}
+              />
+              <path
+                d={`M ${polar(CX, CY, AXIS_R - 7, a.start).x} ${polar(CX, CY, AXIS_R - 7, a.start).y} L ${polar(CX, CY, AXIS_R + 7, a.start).x} ${polar(CX, CY, AXIS_R + 7, a.start).y}`}
+                stroke={a.color}
+                strokeWidth={3.5}
+                strokeLinecap="round"
+              />
+              <path
+                d={`M ${polar(CX, CY, AXIS_R - 7, a.end).x} ${polar(CX, CY, AXIS_R - 7, a.end).y} L ${polar(CX, CY, AXIS_R + 7, a.end).x} ${polar(CX, CY, AXIS_R + 7, a.end).y}`}
+                stroke={a.color}
+                strokeWidth={3.5}
+                strokeLinecap="round"
+              />
+              <text
+                fill={a.color}
+                fontSize={11}
+                fontWeight={700}
+                letterSpacing={0.6}
+                textAnchor="middle"
+              >
+                <textPath href={`#${pathId}`} xlinkHref={`#${pathId}`} startOffset="50%">
+                  {a.label}
+                </textPath>
+              </text>
+            </g>
+          );
+        })}
 
         {sectors.map((s) => (
           <g key={s.id}>
